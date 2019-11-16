@@ -1,4 +1,6 @@
+# Project specific files and directories
 tp3
+.vscode/
 
 # Prerequisites
 *.d
