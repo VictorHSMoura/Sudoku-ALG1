@@ -8,28 +8,35 @@ Sudoku::Sudoku(int order, int columns_per_block, int lines_per_block) {
     this->lines_per_block = lines_per_block;
 
     this->sudoku_adjacency = new std::vector<int>[order * order];
-    this->sudoku_values = new int[order * order](); //initializing with 0's
+    this->cant_be = new std::set<int>[order * order];
+    this->sudoku_values = new int[order * order];
     this->saturation = new int[order * order](); //initializing with 0's
 
     this->connect_lines_and_columns();
     this->connect_blocks();
-
-    // TODO: implement a function to read the sudoku and set the values and saturation
-    
-    // setting some test values
-    this->sudoku_values[1] = 4; this->sudoku_values[3] = 1;
-    this->sudoku_values[4] = 3; this->sudoku_values[11] = 4;
-    
-    this->saturation[0] = 3; this->saturation[1] = 2; this->saturation[2] = 2;
-    this->saturation[3] = 2; this->saturation[4] = 1; this->saturation[5] = 2;
-    this->saturation[6] = 2; this->saturation[7] = 3; this->saturation[8] = 2;
-    this->saturation[9] = 2; this->saturation[10] = 1; this->saturation[11] = 1;
-    this->saturation[12] = 1; this->saturation[13] = 1; this->saturation[14] = 1;
-    this->saturation[15] = 2;
 }
 
 Sudoku::~Sudoku() {    
     delete[] this->sudoku_adjacency;
+    delete[] this->cant_be;
+    delete[] this->sudoku_values;
+}
+
+void Sudoku::add_value(int row, int column, int value) {
+    int position = row * this->order + column;
+    std::vector<int>::iterator it, begin, end;
+    
+    begin = this->sudoku_adjacency[position].begin();
+    end = this->sudoku_adjacency[position].end();
+    
+    this->sudoku_values[position] = value;
+    
+    if(value != 0) {
+        for (it = begin; it != end; it++) {
+            this->saturation[*it]++;
+            this->cant_be[*it].insert(value);
+        }
+    }
 }
 
 void Sudoku::connect_lines_and_columns() {
@@ -67,7 +74,7 @@ void Sudoku::connect_blocks() {
                         this->sudoku_adjacency[dest].push_back(source);
                     }
                     //undo the correction to keep the loop-for correct
-                    column -= (j / this->columns_per_block) * this->columns_per_block; 
+                    column -= (j / this->columns_per_block) * this->columns_per_block;
                 }
             }
         }
@@ -76,29 +83,44 @@ void Sudoku::connect_blocks() {
 
 void Sudoku::print_adjacency() {
     int sudoku_size = this->order * this->order;
+    std::vector<int>::iterator it, begin, end;
+
     for (int i = 0; i < sudoku_size; i++) {
-        for (std::vector<int>::iterator it = this->sudoku_adjacency[i].begin() ; it != this->sudoku_adjacency[i].end(); it++)
+        begin = this->sudoku_adjacency[i].begin();
+        end = this->sudoku_adjacency[i].end();
+        
+        for (it = begin; it != end; it++)
             std::cout << *it <<  " ";
         std::cout <<std::endl;
     }
 }
 
+int Sudoku::find_max_saturation_vertex(int option) {
+    int sudoku_size = this->order * this->order;
+    int max_saturation_vertex = 0, max_saturation = -1;
+    
+    for (int i = 0; i < sudoku_size; i++) {
+        if (this->saturation[i] >= max_saturation && this->sudoku_values[i] == 0) {
+            max_saturation_vertex = i;
+            max_saturation = this->saturation[i];
+        }
+    }
+}
+
 bool Sudoku::solve() {
-    // Consider a vertex with the highest degree of saturation. 
+    // Consider a vertex with the greatest "can't be" set
     // Break ties by considering that vertex with the highest degree. (same degree for all. Unnecessary)
     // Further ties are broken randomly.
     // Loop through the colour classes created so far, and colour the selected vertex with the first suitable colour.
     // Unless V is all coloured, return to step 1.
     int sudoku_size = this->order * this->order;
-    int max_saturation_vertex, max_saturation;
+    int max_probable_vertex, max_probable;
     int possible_solution, sudoku_complete;
 
     while(true) {
-        this->print_sudoku();
-        std::cout << std::endl;
 
-        max_saturation_vertex = 0;
-        max_saturation = -1;
+        max_probable_vertex = 0;
+        max_probable = 0;
         possible_solution = 0;
         sudoku_complete = 1;
 
@@ -113,37 +135,28 @@ bool Sudoku::solve() {
         if(sudoku_complete)
             return true;  
 
-        // The existence of the solution depends on the way
-        // the loop goes (ascending or descending).
-        // Some solutions are found going from 0 to sudoku_size
-        // and some are found going from sudoku_size to 0. There's no guarantee
-        // to found a solution even looping these two ways
-
-        // TODO: implement two way loop. Search for the solution
-        // looping in a crescent order and in a decrescent order
-        for (int i = sudoku_size - 1; i >= 0; i--) {
-            if (this->saturation[i] > max_saturation && this->sudoku_values[i] == 0) {
-                max_saturation_vertex = i;
-                max_saturation = this->saturation[i];
+        for (int i = 0; i < sudoku_size; i++) {
+            if (this->cant_be[i].size() > max_probable && this->sudoku_values[i] == 0) {
+                max_probable_vertex = i;
+                max_probable = this->cant_be[i].size();
             }
         }
+
         for (int i = 1; i <= this->order; i++) {
             int colour_possible = 1;
-            for (std::vector<int>::iterator it = this->sudoku_adjacency[max_saturation_vertex].begin();
-                it != this->sudoku_adjacency[max_saturation_vertex].end(); it++) {
-                if(this->sudoku_values[*it] == i) {
-                    colour_possible = 0;
-                    break;
-                }
+
+            if(this->cant_be[max_probable_vertex].find(i) != this->cant_be[max_probable_vertex].end()) {
+                colour_possible = 0;
             }
+            
             if (colour_possible) {
                 possible_solution = 1;
-                this->sudoku_values[max_saturation_vertex] = i;
+                this->sudoku_values[max_probable_vertex] = i;
 
                 // increase the saturation for adjacent vertexes
-                for (std::vector<int>::iterator it = this->sudoku_adjacency[max_saturation_vertex].begin();
-                it != this->sudoku_adjacency[max_saturation_vertex].end(); it++) {
-                    this->saturation[*it]++;
+                for (std::vector<int>::iterator it = this->sudoku_adjacency[max_probable_vertex].begin();
+                it != this->sudoku_adjacency[max_probable_vertex].end(); ++it) {
+                    this->cant_be[*it].insert(i);
                 }
                 break; // break the colour loop
             }
@@ -151,8 +164,9 @@ bool Sudoku::solve() {
 
         // if no colour was found for a vertex, then there's no solution for this algorithm
         // and we return that the solution wasn't found
-        if(possible_solution == 0)
+        if(possible_solution == 0){
             return false;
+        }
     }
 }
 
