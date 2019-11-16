@@ -10,7 +10,6 @@ Sudoku::Sudoku(int order, int columns_per_block, int lines_per_block) {
     this->sudoku_adjacency = new std::vector<int>[order * order];
     this->cant_be = new std::set<int>[order * order];
     this->sudoku_values = new int[order * order];
-    this->saturation = new int[order * order](); //initializing with 0's
 
     this->connect_lines_and_columns();
     this->connect_blocks();
@@ -33,7 +32,6 @@ void Sudoku::add_value(int row, int column, int value) {
     
     if(value != 0) {
         for (it = begin; it != end; it++) {
-            this->saturation[*it]++;
             this->cant_be[*it].insert(value);
         }
     }
@@ -95,18 +93,6 @@ void Sudoku::print_adjacency() {
     }
 }
 
-int Sudoku::find_max_saturation_vertex(int option) {
-    int sudoku_size = this->order * this->order;
-    int max_saturation_vertex = 0, max_saturation = -1;
-    
-    for (int i = 0; i < sudoku_size; i++) {
-        if (this->saturation[i] >= max_saturation && this->sudoku_values[i] == 0) {
-            max_saturation_vertex = i;
-            max_saturation = this->saturation[i];
-        }
-    }
-}
-
 bool Sudoku::solve() {
     // Consider a vertex with the greatest "can't be" set
     // Break ties by considering that vertex with the highest degree. (same degree for all. Unnecessary)
@@ -153,7 +139,7 @@ bool Sudoku::solve() {
                 possible_solution = 1;
                 this->sudoku_values[max_probable_vertex] = i;
 
-                // increase the saturation for adjacent vertexes
+                // add the color to the can't be set of the adjacent vertexes
                 for (std::vector<int>::iterator it = this->sudoku_adjacency[max_probable_vertex].begin();
                 it != this->sudoku_adjacency[max_probable_vertex].end(); ++it) {
                     this->cant_be[*it].insert(i);
