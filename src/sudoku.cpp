@@ -6,10 +6,11 @@ Sudoku::Sudoku(int order, int columns_per_block, int lines_per_block) {
     this->order = order;
     this->columns_per_block = columns_per_block;
     this->lines_per_block = lines_per_block;
+    this->sudoku_size = order * order;
 
-    this->sudoku_adjacency = new std::vector<int>[order * order];
-    this->cant_be = new std::set<int>[order * order];
-    this->sudoku_values = new int[order * order];
+    this->sudoku_adjacency = new std::vector<int>[this->sudoku_size];
+    this->cant_be = new std::set<int>[this->sudoku_size];
+    this->sudoku_values = new int[this->sudoku_size];
 
     this->connect_lines_and_columns();
     this->connect_blocks();
@@ -30,29 +31,26 @@ void Sudoku::add_value(int row, int column, int value) {
     
     this->sudoku_values[position] = value;
     
-    if(value != 0) {
-        for (it = begin; it != end; it++) {
+    if(value != 0)
+        for (it = begin; it != end; it++)
             this->cant_be[*it].insert(value);
-        }
-    }
 }
 
 void Sudoku::connect_lines_and_columns() {
-    int sudoku_size = this->order * this->order;
+    for (int i = 0; i < this->order; i++) {
+        for (int j = 0; j < this->order; j++) {
+            int position = i * this->order + j;
+            //connect lines
+            for (int column = j + 1; column < this->order; column++) {
+                this->sudoku_adjacency[position].push_back(i * this->order + column);
+                this->sudoku_adjacency[i * this->order + column].push_back(position);
+            }
 
-    for (int i = 0; i < sudoku_size; i++) {
-        int line_i = (i / this->order);
-        //connect lines
-        for (int column = (i % this->order) + 1; column < this->order; column++) {
-            this->sudoku_adjacency[i].push_back(line_i * this->order + column);
-            this->sudoku_adjacency[line_i * this->order + column].push_back(i);
-        }
-
-        int column_i = (i % this->order);
-        //connect columns
-        for (int line = (i / this->order) + 1; line < this->order; line++) {
-            this->sudoku_adjacency[i].push_back(line * this->order + column_i);
-            this->sudoku_adjacency[line * this->order + column_i].push_back(i);
+            //connect columns
+            for (int line = i + 1; line < this->order; line++) {
+                this->sudoku_adjacency[position].push_back(line * this->order + j);
+                this->sudoku_adjacency[line * this->order + j].push_back(position);
+            }
         }
     }
 }
@@ -61,7 +59,7 @@ void Sudoku::connect_blocks() {
     for (int i = 0; i < this->order; i++) {
         for (int j = 0; j < this->order; j++) {
             int source = i * this->order + j;
-            for(int line = i + 1; (line < this->order) && (line % this->lines_per_block != 0); line++) {
+            for(int line = i + 1; (line % this->lines_per_block != 0); line++) {
                 for(int column = 0; column < this->columns_per_block; column++) {
                     //column correcting factor
                     //get the correct indices for the block
@@ -80,10 +78,9 @@ void Sudoku::connect_blocks() {
 }
 
 void Sudoku::print_adjacency() {
-    int sudoku_size = this->order * this->order;
     std::vector<int>::iterator it, begin, end;
 
-    for (int i = 0; i < sudoku_size; i++) {
+    for (int i = 0; i < this->sudoku_size; i++) {
         begin = this->sudoku_adjacency[i].begin();
         end = this->sudoku_adjacency[i].end();
         
@@ -93,64 +90,72 @@ void Sudoku::print_adjacency() {
     }
 }
 
+bool Sudoku::is_complete() {
+    for (int i = 0; i < this->sudoku_size; i++)
+        if(this->sudoku_values[i] == 0)
+            return false;
+    return true;
+}
+
+int Sudoku::find_max_probable_vertex() {
+    int max_probable_vertex = 0, max_probable = 0;
+    for (int i = 0; i < this->sudoku_size; i++) {
+        if (this->cant_be[i].size() > max_probable && this->sudoku_values[i] == 0) {
+            max_probable_vertex = i;
+            max_probable = this->cant_be[i].size();
+        }
+    }
+    return max_probable_vertex;
+}
+
+bool Sudoku::is_color_possible(int vertex, int color) {
+    return this->cant_be[vertex].find(color) == this->cant_be[vertex].end();
+}
+
+void Sudoku::mark_adjacent_vertexes(int vertex, int color) {
+    std::vector<int>::iterator it, begin, end;
+    begin = this->sudoku_adjacency[vertex].begin();
+    end = this->sudoku_adjacency[vertex].end();
+
+    for (it = begin; it != end; ++it) {
+        this->cant_be[*it].insert(color);
+    }
+}
+
 bool Sudoku::solve() {
     // Consider a vertex with the greatest "can't be" set
     // Break ties by considering that vertex with the highest degree. (same degree for all. Unnecessary)
     // Further ties are broken randomly.
-    // Loop through the colour classes created so far, and colour the selected vertex with the first suitable colour.
-    // Unless V is all coloured, return to step 1.
-    int sudoku_size = this->order * this->order;
-    int max_probable_vertex, max_probable;
-    int possible_solution, sudoku_complete;
+    // Loop through the color classes created so far, and color the selected vertex with the first suitable color.
+    // Unless V is all colored, return to step 1.
+    int max_probable_vertex;
+    bool solution_possible;
 
     while(true) {
-
-        max_probable_vertex = 0;
-        max_probable = 0;
-        possible_solution = 0;
-        sudoku_complete = 1;
-
-        for (int i = 0; i < sudoku_size; i++) {
-            if(this->sudoku_values[i] == 0) {
-                sudoku_complete = 0;
-                break;
-            }
-        }
+        solution_possible = false;
 
         // if the sudoku is complete, then we return that we found the solution
-        if(sudoku_complete)
+        if(this->is_complete())
             return true;  
 
-        for (int i = 0; i < sudoku_size; i++) {
-            if (this->cant_be[i].size() > max_probable && this->sudoku_values[i] == 0) {
-                max_probable_vertex = i;
-                max_probable = this->cant_be[i].size();
-            }
-        }
+        max_probable_vertex = this->find_max_probable_vertex();
 
         for (int i = 1; i <= this->order; i++) {
-            int colour_possible = 1;
-
-            if(this->cant_be[max_probable_vertex].find(i) != this->cant_be[max_probable_vertex].end()) {
-                colour_possible = 0;
-            }
+            int color_possible = this->is_color_possible(max_probable_vertex, i);
             
-            if (colour_possible) {
-                possible_solution = 1;
+            if (color_possible) {
+                solution_possible = true;
                 this->sudoku_values[max_probable_vertex] = i;
 
                 // add the color to the can't be set of the adjacent vertexes
-                for (std::vector<int>::iterator it = this->sudoku_adjacency[max_probable_vertex].begin();
-                it != this->sudoku_adjacency[max_probable_vertex].end(); ++it) {
-                    this->cant_be[*it].insert(i);
-                }
-                break; // break the colour loop
+                this->mark_adjacent_vertexes(max_probable_vertex, i);
+                break; // break the color loop
             }
         }
 
-        // if no colour was found for a vertex, then there's no solution for this algorithm
+        // if no color was found for a vertex, then there's no solution for this algorithm
         // and we return that the solution wasn't found
-        if(possible_solution == 0){
+        if(!solution_possible){
             return false;
         }
     }
