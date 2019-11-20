@@ -140,15 +140,15 @@ bool Sudoku::solve() {
 
         max_probable_vertex = this->find_max_probable_vertex();
 
-        for (int i = 1; i <= this->order; i++) {
-            int color_possible = this->is_color_possible(max_probable_vertex, i);
+        for (int color = 1; color <= this->order; color++) {
+            int color_possible = this->is_color_possible(max_probable_vertex, color);
             
             if (color_possible) {
                 solution_possible = true;
-                this->sudoku_values[max_probable_vertex] = i;
+                this->sudoku_values[max_probable_vertex] = color;
 
                 // add the color to the can't be set of the adjacent vertexes
-                this->mark_adjacent_vertexes(max_probable_vertex, i);
+                this->mark_adjacent_vertexes(max_probable_vertex, color);
                 break; // break the color loop
             }
         }
