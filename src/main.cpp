@@ -22,7 +22,9 @@ int main(int argc, char const *argv[]) {
                 S.add_value(row, column, value);
             }
         }
-        S.solve();
+        
+        std::cout << (S.solve() ? "solução" : "sem solução") << std::endl;
+
         S.print_sudoku();
     }
     return 0;
