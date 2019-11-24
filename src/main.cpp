@@ -3,7 +3,6 @@
 #include <iostream>
 #include <fstream>
 #include <cstdlib>
-#include <chrono>
 
 int main(int argc, char const *argv[]) {
     int n, i, j, value;
