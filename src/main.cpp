@@ -3,11 +3,12 @@
 #include <iostream>
 #include <fstream>
 #include <cstdlib>
+#include <chrono>
 
 int main(int argc, char const *argv[]) {
     int n, i, j, value;
     std::ifstream input_file;
-
+    
     if(argc <= 1) exit(1);
 
     input_file.open(argv[1]);
@@ -24,7 +25,6 @@ int main(int argc, char const *argv[]) {
         }
         
         std::cout << (S.solve() ? "solução" : "sem solução") << std::endl;
-
         S.print_sudoku();
     }
     return 0;
